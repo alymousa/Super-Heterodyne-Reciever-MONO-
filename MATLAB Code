@@ -1,18 +1,17 @@
-%................................................Pre-Processing The Signals.............................................%
+%............................................Pre-Processing Stage................................%
 
-loc = 'D:\studies\Modulating project'; % defining the location of the files %
+loc = 'FilePath'; % defining the location of the files %
 
 [Signal1,Fs1] = audioread(fullfile(loc,'Short_BBCArabic2.wav')); % reading the first signal %
 [Signal2,Fs2] = audioread(fullfile(loc,'Short_FM9090.wav')); % reading the second signal %
-
 
 L1 = length(Signal1); % L1 is length of first signal %
 L2 = length(Signal2); % L2 is length of second signal %
 
 if L1 > L2
-    L = L1;
+L = L1;
 else
-    L = L2; % L is the maximum length %
+L = L2; % L is the maximum length %
 end
 
 Signal1 = padarray(Signal1,L-L1,0,'post'); % making both signals have the same Maximum length %
@@ -30,9 +29,9 @@ Signal1 = interp(Signal1,10); % increasing the number of samples of the first si
 Signal2 = interp(Signal2,10); % increasing the number of samples of the second signal to follow Nyquist %
 
 % changing the Sampling rate accordingly %
-
 Fs1 = 10*Fs1;
 Fs2 = 10*Fs2;
+
 Ts1 = 1/Fs1;
 Ts2 = 1/Fs2;
 
@@ -40,17 +39,7 @@ L=length(Signal1);
 
 f1=linspace(-Fs1/2,Fs1/2,L); % defining the x axis %
 
-figure
-plot(f1,fftshift(abs(fft(Signal1))));
-xlabel('Frequency in Hz')
-ylabel('RAW signal 1')
-
-figure
-plot(f1,fftshift(abs(fft(Signal2))));
-xlabel('Frequency in Hz')
-ylabel('RAW signal 1')
-
-%..........................................................Modulation Block.........................................................%
+%..................................Modulation Stage (Transmitter)................................%
 
 t1 = 0:Ts1:(L-1)*Ts1
 carrier1 = cos(2*pi*100*1000*t1); % the first modulating signal %
@@ -65,24 +54,15 @@ clear carrier2 % clearing the carrier for memory effeciency %
 Signal1 = Signal1.*carrier1_transpose; % Modulation of the first message %
 Signal2 = Signal2.*carrier2_transpose; % Modulation of the second message %
 
-figure
-plot(f1,fftshift(abs(fft(Signal1))));
-xlabel('Frequency in Hz')
-ylabel('Modulated Signal1')
-
-figure
-plot(f1,fftshift(abs(fft(Signal2))));
-xlabel('Frequency in Hz')
-ylabel('Modulated Signal2')
-
 AM = Signal1 + Signal2; % Multiplexing the two modulated messages %
 
 figure
 plot(f1,fftshift(abs(fft(AM))));
 xlabel('Frequency in Hz')
-ylabel('AM Signal')
+ylabel('Magnitude')
+title('AM SIGNAL')
 
-%..................................................Bandpass Design of the RF Stage..............................................%
+%..................................Bandpass Filter Design of the RF STAGE........................%
 
 BP1 = fdesign.bandpass('Fst1,Fp1,Fp2,Fst2,Ast1,Ap,Ast2',80000/(Fs1/2), 90000/(Fs1/2), 110000/(Fs1/2), 120000/(Fs1/2), 70, 1, 70);
 BP2 = fdesign.bandpass('Fst1,Fp1,Fp2,Fst2,Ast1,Ap,Ast2',120000/(Fs1/2), 130000/(Fs1/2), 170000/(Fs1/2), 180000/(Fs1/2), 70, 1, 70);
@@ -95,16 +75,21 @@ Filtered2 = filter(Filter2,AM); % Applying the filter on the AM Signal, Filtered
 
 figure
 plot(f1,fftshift(abs(fft(Filtered1))));
+xlabel('Frequency in Hz')
+ylabel('Magnitude')
+title('RF STAGE OUTPUT OF DESIRED CHANNEL 1')
 
 figure
 plot(f1,fftshift(abs(fft(Filtered2))));
+xlabel('Frequency in Hz')
+ylabel('Magnitude')
+title('RF STAGE OUTPUT OF DESIRED CHANNEL 2')
 
-%.........................................................IF STAGE..............................................................%
+%............................................. IF STAGE...........................................%
 
 carrierlo1 = cos(2*pi*125000*t1); % the local oscillator carrier for signal one with wLO = wCarrier + wIF, wIF = 25kHz*2pi %
 carrierlo1_transpose = transpose(carrierlo1); % making the carrier a column instead of a row to match the signal %
 clear carrierlo1
-
 carrierlo2 = cos(2*pi*175000*t2); % the local oscillator carrier for signal two with wLO = wCarrier + wIF, wIF = 25kHz*2pi %
 carrierlo2_transpose = transpose(carrierlo2); % making the carrier a column instead of a row to match the signal %
 clear carrierlo2
@@ -115,14 +100,16 @@ AMIF2 = Filtered2.*carrierlo2_transpose; % Mixing the output of the RFStage2 wit
 figure
 plot(f1,fftshift(abs(fft(AMIF1))));
 xlabel('Frequency in Hz')
-ylabel('IF Signal1')
+ylabel('Magnitude')
+title('IF Signal 1')
 
 figure
 plot(f1,fftshift(abs(fft(AMIF2))));
 xlabel('Frequency in Hz')
-ylabel('IF Signal2')
+ylabel('Magnitude')
+title('IF Signal 2')
 
-%...............................................Bandpass Filter Design of the IF Stage..........................................%
+%..................................Bandpass Filter Design of the IF STAGE........................%
 
 BP11 = fdesign.bandpass('Fst1,Fp1,Fp2,Fst2,Ast1,Ap,Ast2',10000/(Fs1/2), 15000/(Fs1/2), 35000/(Fs1/2), 40000/(Fs1/2), 70, 1, 70);
 BP22 = fdesign.bandpass('Fst1,Fp1,Fp2,Fst2,Ast1,Ap,Ast2',100/(Fs1/2), 7000/(Fs1/2), 43000/(Fs1/2), 50000/(Fs1/2), 70, 1, 70);
@@ -132,18 +119,20 @@ Filter22 = design(BP22,'butter'); % designing a butterworth BandPass filter with
 
 Filtered11 = filter(Filter11,AMIF1); % Applying the Bandpass filter on the first IF %
 Filtered22 = filter(Filter22,AMIF2); % Applying the Bandpass filter on the second IF %
- 
+
 figure
 plot(f1,fftshift(abs(fft(Filtered11))));
 xlabel('Frequency in Hz')
-ylabel('Pure IF Signal1')
+ylabel('Magnitude')
+title('IF Signal1 after IF STAGE')
 
 figure
 plot(f1,fftshift(abs(fft(Filtered22))));
 xlabel('Frequency in Hz')
-ylabel('Pure IF Signal2')
+ylabel('Magnitude')
+title('IF Signal2 after IF STAGE')
 
-%..................................................Baseband Detection Stage.....................................................%
+%..................................Base Band Detection Stage ...................................%
 
 carrierBB1 = cos(2*pi*25000*t1); % creating the Baseband returning carrier of frequency = wIF %
 carrierBB1_transpose = transpose(carrierBB1); % making the carrier a column instead of a row to match the signal %
@@ -153,20 +142,22 @@ carrierBB2 = cos(2*pi*25000*t2); % creating the Baseband returning carrier of fr
 carrierBB2_transpose = transpose(carrierBB2); % making the carrier a column instead of a row to match the signal %
 clear carrierBB2 % clearing the row carrier for memory effeciency %
 
-AMBB1 = AMIF1.*carrierBB1_transpose; % Mixing %
-AMBB2 = AMIF2.*carrierBB2_transpose; % Mixing %
+AMBB1 = Filtered11.*carrierBB1_transpose; % Mixing %
+AMBB2 = Filtered22.*carrierBB2_transpose; % Mixing %
 
 figure
 plot(f1,fftshift(abs(fft(AMBB1))));
 xlabel('Frequency in Hz')
-ylabel('AMBB1')
+ylabel('Magnitude')
+title('Output of the Mixer after IF')
 
 figure
 plot(f1,fftshift(abs(fft(AMBB2))));
 xlabel('Frequency in Hz')
-ylabel('AMBB2')
+ylabel('Magnitude')
+title('Output of the Mixer after IF')
 
-%.................................................LOW PASS FILTER DESIGN........................................................%
+%..................................Low Pass Filter Design Stage..................................%
 
 LPF1 = fdesign.lowpass('Fp,Fst,Ap,Ast',10000/(Fs1/2),15000/(Fs1/2),1,100);
 LPF2 = fdesign.lowpass('Fp,Fst,Ap,Ast',15000/(Fs1/2),20000/(Fs1/2),1,100);
@@ -177,7 +168,7 @@ LPFilter2 = design(LPF2,'butter'); % Designing the LOW PASS FILTER that chooses 
 RAWSignal1 = filter(LPFilter1,AMBB1); % Applying the LPF1 %
 RAWSignal2 = filter(LPFilter2,AMBB2); % Applying the LPF2 %
 
-%...................................................Post-Processing Stage.......................................................%
+%....................................Post-Processing Stage.......................................%
 
 Message1 = 4*downsample(RAWSignal1,10); % down sampling the Signal1 to remove the effect of interpolation %
 Message2 = 4*downsample(RAWSignal2,10); % down sampling the Signal2 to remove the effect of interpolation %
@@ -189,13 +180,15 @@ f2 = linspace(-Fs1/2, Fs1/2 ,L);
 figure
 plot(f2,fftshift(abs(fft(Message1))));
 xlabel('Frequency in Hz')
-ylabel('Message 1')
+ylabel('Magnitude')
+title('Baseband Message1 after LPF')
 
 figure
-plot(f2,fftshift(abs(fft(Message2))));
+plot(f2,fftshift(abs(fft(Message1))));
 xlabel('Frequency in Hz')
-ylabel('Message 2')
+ylabel('Magnitude')
+title('Baseband Message2 after LPF')
 
-%monoZeros = zeros(size(Message1));
-%Stereo = [Message1 , monoZeros];
-%sound(Stereo,Fs1);
+%sound(Message1,Fs1)%
+%sound(Message2,Fs1)%
+
